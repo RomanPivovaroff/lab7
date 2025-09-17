@@ -39,7 +39,7 @@ public class DBManager {
                 worker.setId(rs.getInt("id"));
                 worker.setName(rs.getString("name"));
                 worker.setSalary(rs.getInt("salary"));
-                worker.setPosition(position == null ? null : Position.valueOf(type.toUpperCase()));
+                worker.setPosition(position == null ? null : Position.valueOf(position.toUpperCase()));
                 worker.setCoordinates(
                         new Coordinates(rs.getInt("coordinate_x"), rs.getFloat("coordinate_y")));
                 worker.setOrganization(
@@ -47,7 +47,7 @@ public class DBManager {
                                 ? null
                                 : new Organization(
                                         Float.parseFloat(annualTurnover),
-                                        type == null ? null : OrganizationType.valueOf(type),
+                                        type == null ? null : OrganizationType.valueOf(type.toUpperCase()),
                                         locationName == null
                                                 ? null
                                                 : new Address(
