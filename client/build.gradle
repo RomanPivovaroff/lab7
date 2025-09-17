@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'checkstyle'
+    id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+checkstyle {
+    toolVersion = '10.12.5'
+    ignoreFailures = true  // не падать при ошибках
+    showViolations = true  // показывать нарушения
+
+    config = resources.text.fromArchiveEntry(configurations.checkstyle[0], 'google_checks.xml')
+}
+
+spotless {
+    java {
+        target 'src/main/java/**/*.java'  // все Java файлы
+
+
+        // Дополнительные фиксы
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+        googleJavaFormat('1.22.0').aosp().reflowLongStrings()
+
+        indentWithSpaces(2)
+        importOrder()
+
+        custom 'FixCheckstyleIssues', {
+            it.replaceAll(';;', ';') // Multiple consecutive semicolons
+                    .replaceAll('\\b(int|float|double|boolean)\\s+(\\w)', '$1 $2') // Type spacing
+                    .replaceAll('\\s+\\)', ')') // Space before closing parenthesis
+        }
+    }
+}
+
+dependencies {
+    implementation project(':common')
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    implementation 'jakarta.activation:jakarta.activation-api:2.0.0'
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.2'
+    implementation 'org.glassfish.jaxb:jaxb-core:4.0.5'
+    implementation 'org.glassfish.jaxb:jaxb-runtime:4.0.5'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn spotlessApply
+    options.encoding = 'UTF-8'
+}
+
+checkstyleMain.dependsOn 'spotlessApply'
+checkstyleTest.dependsOn 'spotlessApply'
+
+application {
+    mainClass = 'client.Main'
+}
+
+run {
+    standardInput = System.in
+    args = ["input.xml"]
+}
+
+test {
+    useJUnitPlatform()
+}
+
+shadowJar {
+    archiveBaseName = 'lab7_client'
+    archiveVersion = '1'
+    manifest {
+        attributes 'Main-Class': 'client.Main'
+    }
+}
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+task generateJavadoc(type: Javadoc) {
+    source = sourceSets.main.allJava
+    classpath = configurations.compileClasspath
+    destinationDir = file("${buildDir}/docs/javadoc")
+}

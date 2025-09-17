@@ -1,0 +1,78 @@
+help
+info
+show
+print_unique_status
+history
+add
+Иван Петров
+100
+150.5
+50000
+2024-01-15T09:00+01:00
+HEAD_OF_DEPARTMENT
+HIRED
+75000000.5
+PUBLIC
+120.5
+240.75
+360
+Санкт-Петербург
+Невский проспект
+show
+add_if_max
+Анна Сидорова
+266
+200.0
+120000
+2024-02-20T10:30+03:00
+DIRECTOR
+RECOMMENDED_FOR_PROMOTION
+150000000.0
+OPEN_JOINT_STOCK_COMPANY
+-50.0
+100.5
+-200
+Москва
+Литейный проспект
+show
+remove_greater
+Мария Иванова
+50
+75.3
+30000
+2023-11-10T14:45+04:00
+LABORER
+PROBATION
+50000000.0
+COMMERCIAL
+80.1
+160.2
+240
+Новосибирск
+
+show
+filter_by_organization
+update 1
+Сергей Кузнецов
+120
+180.2
+85000
+2024-03-01T08:15+02:00
+HUMAN_RESOURCES
+REGULAR
+95000000.0
+PUBLIC
+90.5
+180.3
+270
+Казань
+Садовая улица
+show
+remove_by_id 2
+clear
+show
+print_ascending
+history
+execute_script test2.txt
+save
+exit

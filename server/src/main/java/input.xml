@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<serializedWorker>
+    <worker>
+        <coordinates>
+            <x>1</x>
+            <y>2.0</y>
+        </coordinates>
+        <creationDate>2025-09-05T23:29:51.031+03:00</creationDate>
+        <id>5</id>
+        <name>A</name>
+        <position>COOK</position>
+        <salary>3</salary>
+        <startDate>2022-12-12T00:00:00+03:00[Europe/Moscow]</startDate>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>1</x>
+            <y>2.0</y>
+        </coordinates>
+        <creationDate>2025-09-06T15:39:31.570+03:00</creationDate>
+        <id>6</id>
+        <name>A</name>
+        <position>COOK</position>
+        <salary>3</salary>
+        <startDate>2022-01-01T00:00:00+03:00[Europe/Moscow]</startDate>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>50</x>
+            <y>75.3</y>
+        </coordinates>
+        <creationDate>2025-09-06T15:41:36.683+03:00</creationDate>
+        <id>9</id>
+        <name>Мария Иванова</name>
+        <organization>
+            <annualTurnover>5.0E7</annualTurnover>
+            <postalAdress>
+                <town>
+                    <name>Новосибирск</name>
+                    <x>80.1</x>
+                    <y>160.2</y>
+                    <z>240</z>
+                </town>
+            </postalAdress>
+            <type>COMMERCIAL</type>
+        </organization>
+        <position>LABORER</position>
+        <salary>30000</salary>
+        <startDate>2023-11-10T14:45:00+04:00</startDate>
+        <status>PROBATION</status>
+    </worker>
+</serializedWorker>

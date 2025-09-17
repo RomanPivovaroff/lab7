@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<serializedWorker>
+    <worker>
+        <coordinates>
+            <x>50</x>
+            <y>25.1</y>
+        </coordinates>
+        <creationDate>2025-03-03T12:00:00+03:00</creationDate>
+        <id>3</id>
+        <name>Mike Johnson</name>
+        <organization>
+            <annualTurnover>500000.0</annualTurnover>
+        </organization>
+        <position>COOK</position>
+        <salary>45000</salary>
+        <startDate>2025-03-03T12:00:00+03:00[Europe/Moscow]</startDate>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>100</x>
+            <y>50.5</y>
+        </coordinates>
+        <creationDate>2025-03-03T10:30:00+03:00</creationDate>
+        <id>1</id>
+        <name>John Doe</name>
+        <organization>
+            <annualTurnover>1000000.5</annualTurnover>
+            <type>COMMERCIAL</type>
+        </organization>
+        <position>HEAD_OF_DEPARTMENT</position>
+        <salary>50000</salary>
+        <startDate>2025-03-03T10:30:00+03:00[Europe/Moscow]</startDate>
+        <status>HIRED</status>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>75</x>
+            <y>35.7</y>
+        </coordinates>
+        <creationDate>2025-03-03T14:30:00+03:00</creationDate>
+        <id>5</id>
+        <name>Alex Brown</name>
+        <organization>
+            <annualTurnover>1500000.0</annualTurnover>
+            <type>PUBLIC</type>
+        </organization>
+        <position>LABORER</position>
+        <salary>55000</salary>
+        <startDate>2025-03-03T14:30:00+03:00[Europe/Moscow]</startDate>
+        <status>RECOMMENDED_FOR_PROMOTION</status>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>200</x>
+            <y>100.0</y>
+        </coordinates>
+        <creationDate>2025-03-03T13:45:00+03:00</creationDate>
+        <id>4</id>
+        <name>Sarah Wilson</name>
+        <position>HUMAN_RESOURCES</position>
+        <salary>60000</salary>
+        <startDate>2025-03-03T13:45:00+03:00[Europe/Moscow]</startDate>
+        <status>PROBATION</status>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>150</x>
+            <y>75.3</y>
+        </coordinates>
+        <creationDate>2025-03-03T11:15:00+03:00</creationDate>
+        <id>2</id>
+        <name>Jane Smith</name>
+        <organization>
+            <annualTurnover>2500000.0</annualTurnover>
+            <type>OPEN_JOINT_STOCK_COMPANY</type>
+        </organization>
+        <position>DIRECTOR</position>
+        <salary>75000</salary>
+        <startDate>2025-03-03T11:15:00+03:00[Europe/Moscow]</startDate>
+        <status>REGULAR</status>
+    </worker>
+    <worker>
+        <coordinates>
+            <x>12</x>
+            <y>13.0</y>
+        </coordinates>
+        <creationDate>2025-09-03T20:01:59.608+03:00</creationDate>
+        <id>6</id>
+        <name>Джон</name>
+        <organization>
+            <annualTurnover>8.0E7</annualTurnover>
+            <postalAdress>
+                <street>Песочная, 12</street>
+                <town>
+                    <name>Санкт-Петергбург</name>
+                    <x>12.0</x>
+                    <y>13.0</y>
+                    <z>14</z>
+                </town>
+            </postalAdress>
+        </organization>
+        <position>DIRECTOR</position>
+        <salary>80000</salary>
+        <startDate>2023-03-11T15:30:00+03:00</startDate>
+    </worker>
+</serializedWorker>

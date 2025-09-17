@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+}
+
+group = 'lab7'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    implementation 'jakarta.activation:jakarta.activation-api:2.0.0'
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.2'
+    implementation 'org.glassfish.jaxb:jaxb-core:4.0.5'
+    implementation 'org.glassfish.jaxb:jaxb-runtime:4.0.5'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+}
