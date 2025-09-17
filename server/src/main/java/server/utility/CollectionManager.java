@@ -9,7 +9,7 @@ import server.dbmanagers.DBManager;
 
 /** Клаас для Управления коллекцией. */
 public class CollectionManager {
-    private int currentId = 1;
+    private int currentId = 0;
     private static final Logger COLLECTIONLOGGER =
             Logger.getLogger("server.utility.CollectionHandler");
     private Map<Integer, Worker> workers = new HashMap<>();
