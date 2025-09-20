@@ -10,6 +10,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.*;
 
 public class UDPManager {
     private final Console console;
@@ -19,7 +20,15 @@ public class UDPManager {
     private int clientPort = 4652;
     private DatagramChannel channel;
     private Selector selector;
-    private int maxWorkerCount = 490;
+
+    // Fixed thread pool для отправки запросов
+    private final ExecutorService sendExecutor = Executors.newFixedThreadPool(2);
+
+    // Cached thread pool для обработки ответов
+    private final ExecutorService receiveExecutor = Executors.newCachedThreadPool();
+
+    // ForkJoinPool для параллельной обработки
+    private final ForkJoinPool responseProcessor = new ForkJoinPool();
 
     public UDPManager(
             Console console,
@@ -44,20 +53,11 @@ public class UDPManager {
         }
     }
 
-    public int getMaxWorkerCount() {
-        return maxWorkerCount;
-    }
-
-    public void setServerPort(int serverPort) {
-        this.serverPort = serverPort;
-    }
-
-    public int getServerPort() {
-        return serverPort;
-    }
-
     public void send(RemoteCommand object) {
-        sendingManager.send(object, serverPort, clientPort, channel);
+        sendExecutor.submit(
+                () -> {
+                    sendingManager.send(object, serverPort, clientPort, channel);
+                });
     }
 
     public ExecutionResponse receive(long timeoutMillis) {
@@ -75,61 +75,43 @@ public class UDPManager {
                     iter.remove();
 
                     if (key.isReadable()) {
-                        ExecutionResponse response = receivingManager.receive(channel, clientPort);
-                        if (response != null) {
-                            return response;
-                        } else {
-                            return new ExecutionResponse(
-                                    false, "Не удалось обработать ответ сервера");
-                        }
+                        // Обработка в cached thread pool
+                        return receiveExecutor
+                                .submit(() -> receivingManager.receive(channel, clientPort))
+                                .get();
                     }
                 }
             }
 
-            // Таймаут без получения данных
-            return new ExecutionResponse(
-                    false, "Таймаут ожидания ответа от сервера (" + timeoutMillis + "ms)");
+            return new ExecutionResponse(false, "Таймаут ожидания ответа");
 
-        } catch (IOException e) {
-            return new ExecutionResponse(
-                    false, "Ошибка сети при получении данных: " + e.getMessage());
         } catch (Exception e) {
-            return new ExecutionResponse(
-                    false, "Неожиданная ошибка при получении данных: " + e.getMessage());
+            return new ExecutionResponse(false, "Ошибка получения данных: " + e.getMessage());
         }
+    }
+
+    public CompletableFuture<ExecutionResponse> receiveAsync(long timeoutMillis) {
+        return CompletableFuture.supplyAsync(() -> receive(timeoutMillis), responseProcessor);
     }
 
     public void close() {
         try {
-            if (selector != null && selector.isOpen()) {
-                selector.close();
-            }
-            if (channel != null && channel.isOpen()) {
-                channel.close();
-            }
-        } catch (IOException e) {
+            if (selector != null) selector.close();
+            if (channel != null) channel.close();
+
+            // Graceful shutdown пулов
+            sendExecutor.shutdown();
+            receiveExecutor.shutdown();
+            responseProcessor.shutdown();
+
+            if (!sendExecutor.awaitTermination(3, TimeUnit.SECONDS)) sendExecutor.shutdownNow();
+            if (!receiveExecutor.awaitTermination(3, TimeUnit.SECONDS))
+                receiveExecutor.shutdownNow();
+            if (!responseProcessor.awaitTermination(3, TimeUnit.SECONDS))
+                responseProcessor.shutdownNow();
+
+        } catch (Exception e) {
             console.printError("Ошибка закрытия ресурсов: " + e.getMessage());
-        }
-    }
-
-    /** Проверяет, открыто ли соединение */
-    public boolean isConnected() {
-        return channel != null && channel.isOpen() && selector != null && selector.isOpen();
-    }
-
-    /** Переподключается к серверу */
-    public ExecutionResponse reconnect() {
-        close();
-
-        try {
-            channel = DatagramChannel.open();
-            channel.bind(new InetSocketAddress(clientPort));
-            channel.configureBlocking(false);
-            selector = Selector.open();
-            channel.register(selector, SelectionKey.OP_READ);
-            return new ExecutionResponse(true, "Переподключение выполнено успешно");
-        } catch (IOException e) {
-            return new ExecutionResponse(false, "Ошибка переподключения: " + e.getMessage());
         }
     }
 }

@@ -1,69 +1,112 @@
 package server.network;
 
+import common.command.ExecutionResponse;
+import common.command.Register;
 import common.utility.ProgramStatus;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.util.HashSet;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import server.command.ExecutionResponse;
+import server.command.AbstractCommand;
+import server.utility.CommandManager;
 
 public class UDPManager {
     private int port = 46525;
     private final ReceivingManager receivingManager;
     private final SendingManager sendingManager;
+    private final CommandManager commandManager;
     private HashSet<InetSocketAddress> sessions = new HashSet<>();
     private static final Logger logger = Logger.getLogger(UDPManager.class.getName());
 
+    private final ExecutorService requestReader = Executors.newFixedThreadPool(5);
+
+    private final ExecutorService requestProcessor = Executors.newCachedThreadPool();
+
+    private final ForkJoinPool responseSender = new ForkJoinPool();
+
     private volatile boolean isRunning = false;
 
-    public UDPManager(int port, SendingManager sendingManager, ReceivingManager receivingManager)
+    public UDPManager(
+            int port,
+            SendingManager sendingManager,
+            ReceivingManager receivingManager,
+            CommandManager commandManager)
             throws IOException {
         this.port = port;
         this.sendingManager = sendingManager;
         this.receivingManager = receivingManager;
+        this.commandManager = commandManager;
 
-        // Инициализируем неблокирующий приемник
         this.receivingManager.initialize(port);
-
-        // Инициализируем отправку
         this.sendingManager.initialize();
 
         isRunning = true;
-        logger.info("UDPManager запущен в неблокирующем режиме на порту " + port);
+        logger.info("UDPManager запущен с многопоточной обработкой");
+
+        startProcessingThreads();
     }
 
-    /**
-     * Основной метод для проверки и обработки входящих данных Должен вызываться в основном цикле
-     * программы
-     */
-    public void processIncoming() {
-        if (!isRunning) {
-            logger.warning("UDPManager не запущен");
-            return;
+    private void startProcessingThreads() {
+        // Запуск Fixed thread pool для чтения
+        for (int i = 0; i < 5; i++) {
+            requestReader.submit(this::readRequests);
         }
 
-        try {
-            Object receivedObject = receivingManager.receive();
+        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
+            requestProcessor.submit(this::processRequests);
+        }
 
-            if (receivedObject != null) {
-                processReceivedObject(receivedObject);
+        responseSender.submit(this::sendResponses);
+    }
+
+    private void readRequests() {
+        while (isRunning) {
+            try {
+                Object receivedObject = receivingManager.receive();
+                if (receivedObject != null) {
+                    // Передача на обработку в cached pool
+                    requestProcessor.submit(() -> processReceivedObject(receivedObject));
+                }
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Ошибка чтения запросов", e);
             }
-
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Ошибка обработки входящих данных", e);
         }
     }
 
-    /** Обработка полученного объекта */
+    private void processRequests() {
+        while (isRunning) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
+    private void sendResponses() {
+        while (isRunning) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
     private void processReceivedObject(Object object) {
         if (object instanceof ProgramStatus) {
-            ProgramStatus status = (ProgramStatus) object;
-            somethingWithClient(status);
-        } else if (object instanceof common.command.RemoteCommand) {
-            common.command.RemoteCommand command = (common.command.RemoteCommand) object;
-            handleRemoteCommand(command);
+            handleProgramStatus((ProgramStatus) object);
+        } else if (object instanceof common.command.AbstractCommand) {
+            handleRemoteCommand((common.command.AbstractCommand) object);
         } else {
             logger.warning(
                     "Получен неизвестный тип объекта: "
@@ -71,8 +114,7 @@ public class UDPManager {
         }
     }
 
-    /** Обработка RemoteCommand от клиента */
-    private void handleRemoteCommand(common.command.RemoteCommand command) {
+    private void handleRemoteCommand(common.command.AbstractCommand command) {
         InetSocketAddress clientAddress = receivingManager.lastReceivedAddress;
 
         if (clientAddress == null) {
@@ -87,67 +129,106 @@ public class UDPManager {
                         + clientAddress);
 
         try {
-            // Здесь должна быть логика обработки команды
-            // Например: commandManager.executeCommand(command)
+            ExecutionResponse result = processCommand(command);
 
-            Object result = executeCommand(command);
-
-            // Отправляем результат обратно клиенту
             if (result != null) {
-                send(result);
-                logger.info("Результат отправлен клиенту " + clientAddress);
+                responseSender.submit(
+                        () -> {
+                            sendToAddress(result, clientAddress);
+                        });
             }
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Ошибка выполнения команды", e);
-            sendError("Ошибка выполнения команды: " + e.getMessage(), clientAddress);
+            logger.log(
+                    Level.SEVERE,
+                    "Ошибка выполнения команды: " + command.getClass().getSimpleName(),
+                    e);
+            responseSender.submit(
+                    () -> {
+                        sendError("Ошибка выполнения команды: " + e.getMessage(), clientAddress);
+                    });
         }
     }
 
-    /** Заглушка для выполнения команды (должна быть заменена на реальный CommandManager) */
-    private Object executeCommand(common.command.RemoteCommand command) {
-        // TODO: Интегрировать с CommandManager
-        logger.info("Выполнение команды: " + command.getClass().getSimpleName());
-        return new ExecutionResponse(true, "Команда выполнена успешно");
+    private ExecutionResponse processCommand(common.command.AbstractCommand command) {
+        String username = command.getUsername();
+        String password = command.getPassword();
+
+        if (command instanceof Register) {
+            return commandManager.getCommands().get("register").execute(command);
+        }
+
+        if (username == null || password == null) {
+            return new ExecutionResponse(false, "Требуется авторизация");
+        }
+
+        if (!new server.dbmanagers.AuthManager().login(username, password)) {
+            return new ExecutionResponse(
+                    false, "Неверные логин/пароль. Для авторизации используйте login или register");
+        }
+
+        // Выполнение команды
+        String commandName = command.getName().split(" ")[0];
+        AbstractCommand cmd = commandManager.getCommands().get(commandName);
+        if (cmd != null) {
+            return cmd.execute(command);
+        } else {
+            return new ExecutionResponse(false, "Неизвестная команда: " + commandName);
+        }
     }
 
-    /** Отправка объекта конкретному клиенту */
-    public void send(Object object) {
-        if (receivingManager.lastReceivedAddress != null) {
-            sendToAddress(object, receivingManager.lastReceivedAddress);
-        } else {
-            logger.warning("Неизвестно кому отправлять - lastReceivedAddress is null");
+    /** Обработка статусов подключения */
+    private void handleProgramStatus(ProgramStatus status) {
+        InetSocketAddress clientAddress = receivingManager.lastReceivedAddress;
+
+        if (clientAddress == null) {
+            logger.warning("Статус программы получен без адреса отправителя");
+            return;
+        }
+
+        logger.info("Обработка статуса: " + status + " от клиента: " + clientAddress);
+
+        switch (status) {
+            case CLIENT_CONNECTS:
+                addAddress(clientAddress);
+                sendToAddress(ProgramStatus.SERVER_CONNECTS, clientAddress);
+                break;
+
+            case CLIENT_DISCONNECTS:
+                deleteAddress(clientAddress);
+                break;
+
+            default:
+                logger.warning("Неизвестный статус: " + status);
         }
     }
 
     /** Отправка объекта по конкретному адресу */
     public void sendToAddress(Object object, InetSocketAddress address) {
-        if (!isRunning) {
-            logger.warning("Попытка отправки при остановленном UDPManager");
-            return;
-        }
-
-        if (address == null) {
-            logger.warning("Попытка отправки на null адрес");
-            return;
-        }
-
-        try {
-            sendingManager.send(port, address, object, null);
-            logger.fine("Отправлен объект клиенту " + address);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Ошибка отправки клиенту " + address, e);
-        }
+        responseSender.submit(
+                () -> {
+                    try {
+                        sendingManager.send(port, address, object, null);
+                        logger.fine("Отправлен объект клиенту " + address);
+                    } catch (Exception e) {
+                        logger.log(Level.SEVERE, "Ошибка отправки клиенту " + address, e);
+                    }
+                });
     }
 
     /** Отправка сообщения об ошибке */
     private void sendError(String errorMessage, InetSocketAddress address) {
-        try {
-            ExecutionResponse errorResponse = new ExecutionResponse(false, errorMessage);
-            sendToAddress(errorResponse, address);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Не удалось отправить сообщение об ошибке", e);
-        }
+        responseSender.submit(
+                () -> {
+                    try {
+                        ExecutionResponse errorResponse =
+                                new ExecutionResponse(false, errorMessage);
+                        sendingManager.send(port, address, errorResponse, null);
+                    } catch (Exception e) {
+                        logger.log(
+                                Level.SEVERE, "Не удалось отправить ошибку клиенту " + address, e);
+                    }
+                });
     }
 
     /** Отправка объекта всем подключенным клиентам */
@@ -157,51 +238,38 @@ public class UDPManager {
             return;
         }
 
-        logger.info(
-                "Широковещательная отправка "
-                        + object.getClass().getSimpleName()
-                        + " для "
-                        + sessions.size()
-                        + " клиентов");
+        logger.info("Широковещательная отправка для " + sessions.size() + " клиентов");
 
-        for (InetSocketAddress address : sessions) {
-            sendToAddress(object, address);
-        }
+        sessions.forEach(
+                address -> {
+                    responseSender.submit(
+                            () -> {
+                                try {
+                                    sendingManager.send(port, address, object, null);
+                                } catch (Exception e) {
+                                    logger.log(
+                                            Level.SEVERE, "Ошибка отправки клиенту " + address, e);
+                                }
+                            });
+                });
     }
 
-    /** Широкая вещательная отправка на все адреса в сети */
+    /** Широкая вещательная отправка */
     public void broadcast(Object object) {
-        try {
-            // Для широковещательной отправки нужен DatagramSocket
-            try (DatagramSocket broadcastSocket = new DatagramSocket()) {
-                broadcastSocket.setBroadcast(true);
-                sendingManager.send(
-                        port,
-                        new InetSocketAddress("255.255.255.255", port),
-                        object,
-                        broadcastSocket);
-                logger.info("Широкая вещательная отправка выполнена");
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Ошибка широковещательной отправки", e);
-        }
-    }
-
-    /** Обработка подключения/отключения клиентов */
-    public void somethingWithClient(ProgramStatus programStatus) {
-        InetSocketAddress clientAddress = receivingManager.lastReceivedAddress;
-
-        if (clientAddress == null) {
-            logger.warning("Статус программы получен без адреса отправителя");
-            return;
-        }
-
-        if (programStatus == ProgramStatus.CLIENT_CONNECTS) {
-            addAddress(clientAddress);
-            sendToAddress(ProgramStatus.SERVER_CONNECTS, clientAddress);
-        } else if (programStatus == ProgramStatus.CLIENT_DISCONNECTS) {
-            deleteAddress(clientAddress);
-        }
+        responseSender.submit(
+                () -> {
+                    try (DatagramSocket broadcastSocket = new DatagramSocket()) {
+                        broadcastSocket.setBroadcast(true);
+                        sendingManager.send(
+                                port,
+                                new InetSocketAddress("255.255.255.255", port),
+                                object,
+                                broadcastSocket);
+                        logger.info("Широкая вещательная отправка выполнена");
+                    } catch (Exception e) {
+                        logger.log(Level.SEVERE, "Ошибка широковещательной отправки", e);
+                    }
+                });
     }
 
     public void addAddress(InetSocketAddress address) {
@@ -216,53 +284,35 @@ public class UDPManager {
         }
     }
 
-    /** Проверка активности клиентов (должна вызываться периодически) */
-    public void checkClientActivity() {
-        logger.fine("Проверка активности " + sessions.size() + " клиентов");
-
-        // Здесь можно реализовать логику проверки "живых" клиентов
-        // Например, отправлять ping и удалять неответивших
+    public void somethingWithClient(ProgramStatus programStatus) {
+        handleProgramStatus(programStatus);
     }
 
-    /** Остановка менеджера */
     public void stop() {
-        if (!isRunning) {
-            return;
-        }
-
         isRunning = false;
 
-        if (!sessions.isEmpty()) {
-            logger.info("Оповещение " + sessions.size() + " клиентов об отключении сервера");
-            sendAll(ProgramStatus.SERVER_DISCONNECTS);
+        requestReader.shutdown();
+        requestProcessor.shutdown();
+        responseSender.shutdown();
+
+        try {
+            if (!requestReader.awaitTermination(5, TimeUnit.SECONDS)) requestReader.shutdownNow();
+            if (!requestProcessor.awaitTermination(5, TimeUnit.SECONDS))
+                requestProcessor.shutdownNow();
+            if (!responseSender.awaitTermination(5, TimeUnit.SECONDS)) responseSender.shutdownNow();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
 
-        if (receivingManager != null) {
-            receivingManager.close();
-        }
-
-        if (sendingManager != null) {
-            sendingManager.stop();
-        }
+        if (receivingManager != null) receivingManager.close();
+        if (sendingManager != null) sendingManager.stop();
 
         sessions.clear();
         logger.info("UDPManager остановлен");
     }
 
-    /** Проверка работы менеджера */
     public boolean isRunning() {
         return isRunning;
-    }
-
-    /** Получение статистики */
-    public String getStats() {
-        return "UDPManager [порт: "
-                + port
-                + ", клиентов: "
-                + sessions.size()
-                + ", статус: "
-                + (isRunning ? "работает" : "остановлен")
-                + "]";
     }
 
     public int getPort() {
@@ -273,31 +323,11 @@ public class UDPManager {
         return new HashSet<>(sessions);
     }
 
-    public void setSessions(HashSet<InetSocketAddress> sessions) {
-        this.sessions = new HashSet<>(sessions);
-        logger.info("Установлены сессии: " + sessions.size() + " клиентов");
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-        logger.info("Установлен порт: " + port);
-    }
-
     public ReceivingManager getReceivingManager() {
         return receivingManager;
     }
 
     public SendingManager getSendingManager() {
         return sendingManager;
-    }
-
-    /** Деструктор для безопасного закрытия */
-    @Override
-    protected void finalize() throws Throwable {
-        try {
-            stop();
-        } finally {
-            super.finalize();
-        }
     }
 }

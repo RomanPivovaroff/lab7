@@ -25,15 +25,18 @@ public class Runner {
     /** Интерактивный режим */
     public void interactiveMode() {
         try {
-            ExecutionResponse commandStatus;
+            ExecutionResponse commandStatus = new ExecutionResponse(false, "");
             String[] userCommand = {"", ""};
 
             while (true) {
                 console.prompt();
                 userCommand = (console.readln().trim() + " last").split(" ");
                 userCommand[1] = userCommand[1].trim();
-
-                commandStatus = launchCommand(userCommand);
+                try {
+                    commandStatus = launchCommand(userCommand);
+                } catch (TooMuchArgumentsException e) {
+                    console.printError(e.getMessage());
+                }
 
                 if (commandStatus.getMassage().equals("exit")) break;
                 console.println(commandStatus.getMassage());
@@ -42,8 +45,6 @@ public class Runner {
             console.printError("Пользовательский ввод не обнаружен!");
         } catch (IllegalStateException exception) {
             console.printError("Непредвиденная ошибка!");
-        } catch (TooMuchArgumentsException e) {
-            console.printError(e);
         }
     }
 
@@ -173,7 +174,7 @@ public class Runner {
         invoker.addToHistory(userCommand[0]);
         switch (userCommand[0].toUpperCase()) {
             case "EXECUTE_SCRIPT" -> {
-                if (userCommand.length > 3)
+                if (userCommand.length != 3)
                     throw new TooMuchArgumentsException(1, userCommand.length - 1);
                 ExecutionResponse tmp =
                         invoker.invoke((Command) new ExecuteScript(console, userCommand[1]));
@@ -183,7 +184,7 @@ public class Runner {
                 return new ExecutionResponse(tmp2.getIsSucceeded(), tmp2.getMassage().trim());
             }
             case "ADD" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 try {
                     return invoker.invoke(
@@ -195,7 +196,7 @@ public class Runner {
                 }
             }
             case "ADD_IF_MAX" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 try {
                     return invoker.invoke(
@@ -207,7 +208,7 @@ public class Runner {
                 }
             }
             case "REMOVE_GREATER" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 try {
                     return invoker.invoke(
@@ -219,47 +220,47 @@ public class Runner {
                 }
             }
             case "CLEAR" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke(new Clear());
             }
             case "EXIT" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke((Command) new Exit(console));
             }
             case "HELP" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke((Command) new Help(console, invoker));
             }
             case "INFO" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke(new Info());
             }
             case "HISTORY" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke((Command) new History(console, invoker));
             }
             case "PRINT_ASCENDING" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke(new PrintAscending());
             }
             case "PRINT_UNIQUE_STATUS" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke(new PrintUniqueStatus());
             }
             case "REMOVE_BY_ID" -> {
-                if (userCommand.length > 3)
+                if (userCommand.length != 3)
                     throw new TooMuchArgumentsException(1, userCommand.length - 1);
                 return invoker.invoke(new RemoveById(Integer.parseInt(userCommand[1])));
             }
             case "FILTER_BY_ORGANIZATION" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 try {
                     return invoker.invoke(new FilterByOrganization(Ask.askOrganization(console)));
@@ -268,12 +269,12 @@ public class Runner {
                 }
             }
             case "SHOW" -> {
-                if (userCommand.length > 2)
+                if (userCommand.length != 2)
                     throw new TooMuchArgumentsException(0, userCommand.length - 1);
                 return invoker.invoke(new Show());
             }
             case "UPDATE" -> {
-                if (userCommand.length > 3)
+                if (userCommand.length != 3)
                     throw new TooMuchArgumentsException(1, userCommand.length - 1);
                 int id = Integer.parseInt(userCommand[1]);
                 try {
@@ -287,12 +288,13 @@ public class Runner {
                 }
             }
             case "LOGIN" -> {
-                if (userCommand.length > 4)
+                if (userCommand.length != 4)
                     throw new TooMuchArgumentsException(2, userCommand.length - 1);
                 return invoker.invoke(new Login(userCommand[1], userCommand[2]));
             }
             case "REGISTER" -> {
-                if (userCommand.length > 4)
+                console.println(userCommand.length);
+                if (userCommand.length != 4)
                     throw new TooMuchArgumentsException(2, userCommand.length - 1);
                 return invoker.invoke(new Register(userCommand[1], userCommand[2]));
             }

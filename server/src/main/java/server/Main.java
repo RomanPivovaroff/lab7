@@ -29,11 +29,6 @@ public class Main {
             }
         } while (port > 65535 || port < 0);
         console.print("Сервер открыт на порту: " + port);
-        try {
-            udpManager = new UDPManager(port, new SendingManager(), new ReceivingManager());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
         CollectionManager collectionManager = new CollectionManager();
         // Регистрируем хук для экстренного завершения программы
         Terminate terminateHook = new Terminate(console, collectionManager, udpManager);
@@ -62,8 +57,9 @@ public class Main {
                     }
                 };
         try {
-            new ServerCommandProcessor(console, collectionManager, udpManager, commandManager)
-                    .start();
+            udpManager =
+                    new UDPManager(
+                            port, new SendingManager(), new ReceivingManager(), commandManager);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

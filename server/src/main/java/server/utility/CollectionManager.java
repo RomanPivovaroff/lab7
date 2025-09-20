@@ -12,15 +12,15 @@ public class CollectionManager {
     private int currentId = 0;
     private static final Logger COLLECTIONLOGGER =
             Logger.getLogger("server.utility.CollectionHandler");
-    private Map<Integer, Worker> workers = new HashMap<>();
-    private TreeSet<Worker> collection = new TreeSet<>();
+    private Map<Integer, Worker> workers = Collections.synchronizedMap(new HashMap<>());
+    private List<Worker> collection = Collections.synchronizedList(new ArrayList<>());
     private LocalDateTime lastInitTime;
     private LocalDateTime lastSaveTime;
 
     public CollectionManager() {
         try {
             this.setCollection(new DBManager().readAllWorkers());
-            this.currentId = collection.last().getId();
+            this.currentId = getSortCollection().get(0).getId();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -43,27 +43,26 @@ public class CollectionManager {
     /**
      * @return коллекция.
      */
-    public TreeSet<Worker> getCollection() {
+    public List<Worker> getCollection() {
         return collection;
     }
 
     public void setCollection(Vector<Worker> collection) {
-        this.collection = new TreeSet<>(collection);
+        this.collection = Collections.synchronizedList(new ArrayList<>(collection));
         this.workers.putAll(collection.stream().collect(Collectors.toMap(Worker::getId, w -> w)));
     }
 
     /**
      * @return коллекция.
      */
-    public ArrayList<Worker> getSortCollection() {
-        ArrayList<Worker> newCollection = new ArrayList<>(collection);
-        newCollection.sort(
+    public List<Worker> getSortCollection() {
+        collection.sort(
                 new Comparator<Worker>() {
                     public int compare(Worker s1, Worker s2) {
                         return s1.getSalary() - s2.getSalary();
                     }
                 });
-        return newCollection;
+        return collection;
     }
 
     /** Получить Worker по ID */

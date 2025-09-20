@@ -13,7 +13,7 @@ public class Register extends AbstractCommand implements LoginCommand {
 
         MessageDigest md = null;
         try {
-            md = MessageDigest.getInstance("MD2");
+            md = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
         }
         md.update(password.getBytes());

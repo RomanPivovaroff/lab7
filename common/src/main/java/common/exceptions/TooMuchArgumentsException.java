@@ -18,7 +18,7 @@ public class TooMuchArgumentsException extends Exception {
 
     @Override
     public String getMessage() {
-        return "Слишком много аргументов. Ожидалось "
+        return "Неверное количество аргументов. Ожидалось "
                 + neededArgs
                 + " аргументов, получено "
                 + actualArgs
